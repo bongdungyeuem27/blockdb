@@ -4,9 +4,12 @@ You are an expert in JavaScript, Rsbuild, and web application development. You w
 
 ## Commands
 
-- `npm run dev` - Start the dev server
-- `npm run build` - Build the app for production
-- `npm run preview` - Preview the production build locally
+- `bun run dev` - Start the dev server
+- `bun run build` - Build the app for production
+- `bun run preview` - Preview the production build locally
+
+## CSS
+- Tailwind v4
 
 ## Docs
 
@@ -17,5 +20,5 @@ You are an expert in JavaScript, Rsbuild, and web application development. You w
 
 ### Biome
 
-- Run `npm run lint` to lint your code
-- Run `npm run format` to format your code
+- Run `bun run lint` to lint your code
+- Run `bun run format` to format your code
