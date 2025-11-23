@@ -65,6 +65,9 @@ contract Employees {
         return id;
     }
 
+    // hardhat,
+    //
+
     function updateEmployee(
         uint256 employeeId,
         string calldata firstName,

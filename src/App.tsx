@@ -1,11 +1,6 @@
+// biome-ignore assist/source/organizeImports: <explanation>
 import { useEffect, useMemo, useState, type FormEvent, type JSX } from 'react';
-import {
-  useAccount,
-  useConnect,
-  useDisconnect,
-  useReadContract,
-  useWriteContract,
-} from 'wagmi';
+import { useReadContract, useWriteContract } from 'wagmi';
 import './App.css';
 import attendanceABI from './contracts/attendanceABI.json';
 import {
@@ -97,10 +92,9 @@ const serializeContractData = (value: unknown) => {
   }
 };
 
-type RoutePath = (typeof ROUTES)[number]['path'];
-const DEFAULT_ROUTE: RoutePath = '/login';
+type AuthLevel = 'guest' | 'projects' | 'admin';
 
-const HERO_COPY: Record<RoutePath, { title: string; description: string }> = {
+const HERO_COPY = {
   '/login': {
     title: 'Đăng nhập',
     description: 'Kết nối vào BlockDB Console để bắt đầu phiên làm việc.',
@@ -129,7 +123,7 @@ const HERO_COPY: Record<RoutePath, { title: string; description: string }> = {
     title: 'Phòng ban',
     description: 'Tạo phòng ban và tra cứu chi tiết bộ phận.',
   },
-};
+} as const;
 
 const normalizePathname = (pathname: string): RoutePath => {
   const found = ROUTES.find((route) => route.path === pathname);
@@ -159,14 +153,31 @@ const useRouter = () => {
   return { path, navigate };
 };
 
-const LoginPage = () => {
-  const [email, setEmail] = useState('');
+type LoginPageProps = {
+  onLogin: (level: AuthLevel) => void;
+  authLevel: AuthLevel;
+};
+
+const LoginPage = ({ onLogin, authLevel }: LoginPageProps) => {
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [status, setStatus] = useState<'idle' | 'success'>('idle');
+  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setStatus('success');
+    const isRoot = username === 'root' && password === 'ftisu@2022';
+    if (isRoot) {
+      onLogin('admin');
+      setStatus('success');
+      return;
+    }
+    if (username.trim()) {
+      onLogin('projects');
+      setStatus('success');
+      return;
+    }
+    onLogin('guest');
+    setStatus('error');
   };
 
   return (
@@ -176,36 +187,28 @@ const LoginPage = () => {
           Secure login
         </p>
         <h2 className="text-2xl font-semibold leading-tight text-white md:text-3xl">
-          Đăng nhập bằng email để tiếp tục quản lý BlockDB
+          Đăng nhập bằng tài khoản nội bộ để mở khóa tab quản trị
         </h2>
         <p className="text-white/70">
-          Nhập email và mật khẩu của bạn. Để đơn giản, chúng tôi giả lập quá
-          trình xác thực nên chỉ cần nhấn nút là bạn sẽ được đăng nhập.
+          Sử dụng username <strong>root</strong> và password <strong>ftisu@2022</strong> để mở toàn bộ tab quản
+          trị. Nếu dùng tài khoản khác (mật khẩu bất kỳ), bạn chỉ được truy cập tab Projects.
         </p>
-        <div className="mt-auto flex flex-wrap gap-3 text-white/70">
-          <span className="rounded-full border border-white/20 px-3 py-1 text-xs uppercase tracking-widest">
-            OAuth ready
-          </span>
-          <span className="rounded-full border border-white/20 px-3 py-1 text-xs uppercase tracking-widest">
-            Email magic link
-          </span>
-        </div>
       </div>
       <form
         className="flex flex-col gap-4 rounded-2xl bg-white/5 p-6 backdrop-blur"
         onSubmit={handleSubmit}
       >
-        <label className="text-sm font-medium text-white/70" htmlFor="email">
-          Email
+        <label className="text-sm font-medium text-white/70" htmlFor="username">
+          Username
         </label>
         <input
-          id="email"
-          type="email"
+          id="username"
+          type="text"
           required
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          value={username}
+          onChange={(event) => setUsername(event.target.value)}
           className={inputStyles}
-          placeholder="you@example.com"
+          placeholder="root"
         />
         <label className="text-sm font-medium text-white/70" htmlFor="password">
           Password
@@ -217,7 +220,7 @@ const LoginPage = () => {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           className={inputStyles}
-          placeholder="••••••••"
+          placeholder="ftisu@2022"
         />
         <button
           type="submit"
@@ -225,13 +228,29 @@ const LoginPage = () => {
         >
           Đăng nhập
         </button>
+        {/** biome-ignore lint/a11y/useSemanticElements: <explanation> */}
         <p
+          role="status"
           aria-live="polite"
-          className="min-h-[1.5rem] text-sm text-emerald-300"
+          className={`min-h-[1.5rem] text-sm ${
+            status === 'success'
+              ? 'text-emerald-300'
+              : status === 'error'
+                ? 'text-rose-300'
+                : 'text-white/60'
+          }`}
         >
           {status === 'success'
-            ? 'Đăng nhập thành công! Bạn đã sẵn sàng tiếp tục.'
-            : null}
+            ? authLevel === 'admin'
+              ? 'Đăng nhập admin: mở tất cả tab.'
+              : 'Đăng nhập thường: chỉ mở tab Projects.'
+            : status === 'error'
+              ? 'Sai tài khoản hoặc mật khẩu. Tab quản trị vẫn bị khóa.'
+              : authLevel === 'admin'
+                ? 'Bạn đang ở chế độ admin.'
+                : authLevel === 'projects'
+                  ? 'Bạn đang ở chế độ chỉ xem Projects.'
+                  : 'Đăng nhập với root / ftisu@2022 để mở khóa toàn bộ tab, hoặc tên bất kỳ để chỉ dùng Projects.'}
         </p>
       </form>
     </section>
@@ -393,8 +412,8 @@ const EmployeesPage = () => {
       const hash = await writeContractAsync({
         address: EMPLOYEES_CONTRACT_ADDRESS,
         abi: employeeABI,
-        account: account,
         functionName: 'addEmployee',
+        account: account,
         args: [
           form.firstName,
           form.lastName,
@@ -769,8 +788,8 @@ const ProjectsPage = () => {
       const hash = await writeContractAsync({
         address: PROJECT_CONTRACT_ADDRESS,
         abi: projectsABI,
-        account: account,
         functionName: 'addProject',
+        account: account,
         args: [
           form.projectName,
           parseBigIntOrZero(form.startDate),
@@ -956,8 +975,8 @@ const DepartmentsPage = () => {
       const hash = await writeContractAsync({
         address: DEPARTMENTS_CONTRACT_ADDRESS,
         abi: departmentsABI,
-        account: account,
         functionName: 'addDepartment',
+        account: account,
         args: [
           form.departmentName,
           parseBigIntOrZero(form.managerId),
@@ -1096,76 +1115,77 @@ const DepartmentsPage = () => {
   );
 };
 
-const WalletControls = () => {
-  const { address, status } = useAccount();
-  const { connectors, connect, status: connectStatus } = useConnect();
-  const { disconnect } = useDisconnect();
-  const primaryConnector = connectors[0];
-
-  const handleConnect = () => {
-    if (primaryConnector) {
-      connect({ connector: primaryConnector });
-    }
-  };
-
-  // const shortAddress = address
-  //   ? `${address.slice(0, 6)}...${address.slice(-4)}`
-  //   : 'Chưa kết nối ví';
-
-  return (
-    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-2 text-sm">
-      {/* <span className="text-white/70">{shortAddress}</span> */}
-      {address ? (
-        <button
-          type="button"
-          onClick={() => disconnect()}
-          className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-white transition hover:border-white"
-        >
-          Ngắt kết nối
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={handleConnect}
-          disabled={!primaryConnector || connectStatus === 'pending'}
-          className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-white transition hover:border-white disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          Kết nối ví
-        </button>
-      )}
-      <span className="text-white/50">
-        {status === 'connecting' || connectStatus === 'pending'
-          ? 'Đang kết nối...'
-          : address
-            ? 'Đã sẵn sàng ký giao dịch'
-            : 'Sử dụng ví injected (MetaMask, Brave, ...).'}
-      </span>
-    </div>
-  );
-};
-
 const ROUTES = [
   { path: '/login', label: 'Login', component: LoginPage },
   { path: '/read', label: 'Read', component: ReadPage },
   { path: '/write', label: 'Write', component: WritePage },
-  { path: '/employees', label: 'Employees', component: EmployeesPage },
-  { path: '/attendance', label: 'Attendance', component: AttendancePage },
-  { path: '/projects', label: 'Projects', component: ProjectsPage },
-  { path: '/departments', label: 'Departments', component: DepartmentsPage },
-] as const satisfies ReadonlyArray<{
-  path: string;
+  {
+    path: '/employees',
+    label: 'Employees',
+    component: EmployeesPage,
+    access: 'admin',
+  },
+  {
+    path: '/attendance',
+    label: 'Attendance',
+    component: AttendancePage,
+    access: 'admin',
+  },
+  {
+    path: '/projects',
+    label: 'Projects',
+    component: ProjectsPage,
+    access: 'projects',
+  },
+  {
+    path: '/departments',
+    label: 'Departments',
+    component: DepartmentsPage,
+    access: 'admin',
+  },
+] as ReadonlyArray<{
+  path: keyof typeof HERO_COPY;
   label: string;
   component: () => JSX.Element;
+  access?: 'projects' | 'admin';
 }>;
+
+type RoutePath = (typeof ROUTES)[number]['path'];
+const DEFAULT_ROUTE: RoutePath = '/login';
+
+const canAccessRoute = (route: (typeof ROUTES)[number], level: AuthLevel) => {
+  if (!route.access) {
+    return true;
+  }
+  if (route.access === 'projects') {
+    return level === 'projects' || level === 'admin';
+  }
+  if (route.access === 'admin') {
+    return level === 'admin';
+  }
+  return false;
+};
 
 const App = () => {
   const { path, navigate } = useRouter();
+  const [authLevel, setAuthLevel] = useState<AuthLevel>('guest');
   const currentRoute = useMemo(
     () => ROUTES.find((route) => route.path === path) ?? ROUTES[0],
     [path],
   );
   const heroCopy = HERO_COPY[path];
   const PageComponent = currentRoute.component;
+
+  useEffect(() => {
+    const target = ROUTES.find((route) => route.path === path);
+    if (target && !canAccessRoute(target, authLevel)) {
+      if (authLevel === 'projects') {
+        navigate('/projects');
+        return;
+      }
+      navigate('/login');
+    }
+  }, [authLevel, path, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
@@ -1186,20 +1206,24 @@ const App = () => {
                 key={route.path}
                 type="button"
                 onClick={() => navigate(route.path as RoutePath)}
+                disabled={!canAccessRoute(route, authLevel)}
                 className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${
                   path === route.path
                     ? 'border-white bg-white text-slate-900'
                     : 'border-white/30 text-white/80 hover:border-white hover:text-white'
-                }`}
+                } ${!canAccessRoute(route, authLevel) ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 {route.label}
               </button>
             ))}
           </nav>
-          <WalletControls />
         </header>
         <main className="flex-1">
-          <PageComponent />
+          {path === '/login' ? (
+            <LoginPage onLogin={setAuthLevel} authLevel={authLevel} />
+          ) : (
+            <PageComponent />
+          )}
         </main>
       </div>
     </div>
